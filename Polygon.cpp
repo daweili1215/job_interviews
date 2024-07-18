@@ -3,6 +3,7 @@
 #include <deque>
 #include <iostream>
 #include "PolygonT.h"
+#include "traits.h"
 // To compile with g++:
 //     g++ -o Polygon.exe Polygon.cpp
 // The functions to implement are:
@@ -21,50 +22,6 @@
 //
 // Polygon.cpp
 //  Enhance the code in the testing classes that specialize PolygonT as needed
-template< typename COORDTYPE >
-class Point2DT
-{
-public:
-     Point2DT() = default;
-     Point2DT(COORDTYPE x, COORDTYPE y ) { _point={x,y};}
-     Point2DT &operator=( const Point2DT& pt ) {
-          if ( this != &pt ) {
-               std::memcpy( _point.get(), pt._point.get(), 2*sizeof(COORDTYPE));
-          }
-     }
-     virtual ~Point2DT() = default;
-     friend std::ostream& operator<<(std::ostream& stream, const Point2DT& obj)
-    {
-        stream << obj.X() << "," << obj.Y();
-        return stream;
-    }
-     auto X() const -> COORDTYPE { return _point[0];}
-     auto Y() const -> COORDTYPE { return _point[1];}
-private:
-     std::array<COORDTYPE,2> _point;
-};
-
-template< typename COORDTYPE >
-class PointXYT
-{
-public:
-     PointXYT() = default;
-     PointXYT(COORDTYPE ptx, COORDTYPE pty ) : x(ptx), y(pty) {}
-     PointXYT &operator=( const PointXYT& pt ) {
-          if ( this != &pt ) {
-               x = pt.x;
-               y = pt.y;
-          }
-     }
-     virtual ~PointXYT() = default;
-     friend std::ostream& operator<<(std::ostream& stream, const PointXYT& obj)
-    {
-        stream << obj.x << "," << obj.y;
-        return stream;
-    }
-
-     COORDTYPE x,y;
-};
 
 auto PolygonTest() ->void 
 {
@@ -101,7 +58,25 @@ auto PolygonTest() ->void
     }
 }
 
+auto my_test()
+{
+     std::cout << "running my_test" << std::endl;
+     {
+          using UIntPoint = PointXYT<uint64_t>;
+          std::vector<UIntPoint> v = { {1,3}, {2, 3}, {1,5}, {4, 5}, {0, 2} };
+          auto result = std::vector<UIntPoint>{}; 
+                    SegmentIntersection(v[0], v[1], v[2], v[3], result);
+          if (!result.empty()) {
+               for (auto p : result)
+                    std::cout << p << "\n";
+          } else {
+               std::cout << "vector empty no intersection\n";
+          }
+     }
+}
 int main()
 {
     PolygonTest();
+    my_test();
+    return 0;
 }
