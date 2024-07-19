@@ -59,44 +59,8 @@ auto PolygonTest() -> void
      }
 }
 
-auto my_test()
-{
-     std::cout << "running my_test" << std::endl;
-     {
-          using UIntPoint = PointXYT<uint64_t>;
-          std::vector<UIntPoint> v = {{1, 3}, {2, 3}, {1, 5}, {4, 5}, {0, 2}};
-          auto result = std::vector<UIntPoint>{};
-          SegmentIntersection(v[0], v[1], v[2], v[3], result);
-          if (!result.empty())
-          {
-               for (auto p : result)
-                    std::cout << p << "\n";
-          }
-          else
-          {
-               std::cout << "vector empty no intersection\n";
-          }
-          UIntPoint p = {2, 2}, q = {3, 3};
-          auto tmp = p;
-          auto tmp2(p);
-          std::stack<UIntPoint> s;
-          s.push(p);
-          // PolygonT<std::stack<UIntPoint>> polygons(s);
-          test_get(p, q);
-
-          Point2DT<uint64_t> p1(1, 2), p2(3, 4);
-          test_get(p1, p2);
-     }
-     {
-          using IntPoint = Point2DT<int>;
-          std::array<IntPoint, 5> pointArray = {{{-1, -1}, {3, -2}, {2, 1}, {4, 5}, {-2, 2}}};
-          PolygonT<std::array<IntPoint, 5>> polygon(pointArray);
-          polygon.InPolygonTest(IntPoint(2, 1));
-     }
-}
 int main()
 {
      PolygonTest();
-     // my_test();
      return 0;
 }

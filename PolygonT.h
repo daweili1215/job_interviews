@@ -133,23 +133,6 @@ auto SegmentIntersection(const POINTTYPE &p1, const POINTTYPE &q1, const POINTTY
         return;
     }
 
-    // Special cases
-    // p1, q1 and p2 are collinear and p2 lies on segment p1q1
-    if (o1 == 0 && OnSegment(p1, p2, q1))
-        return intersectons.push_back(p2);
-
-    // p1, q1 and q2 are collinear and q2 lies on segment p1q1
-    if (o2 == 0 && OnSegment(p1, q2, q1))
-        return intersectons.push_back(q2);
-
-    // p2, q2 and p1 are collinear and p1 lies on segment p2q2
-    if (o3 == 0 && OnSegment(p2, p1, q2))
-        return intersectons.push_back(p1);
-
-    // p2, q2 and q1 are collinear and q1 lies on segment p2q2
-    if (o4 == 0 && OnSegment(p2, q1, q2))
-        return intersectons.push_back(q1);
-
     // Check for overlapping segments
     if (o1 == 0 && o2 == 0 && o3 == 0 && o4 == 0)
     {
@@ -173,17 +156,65 @@ auto SegmentIntersection(const POINTTYPE &p1, const POINTTYPE &q1, const POINTTY
         intersectons = overlap_points;
         return;
     }
+    // Special cases
+    // p1, q1 and p2 are collinear and p2 lies on segment p1q1
+    if (o1 == 0 && OnSegment(p1, p2, q1))
+        return intersectons.push_back(p2);
+
+    // p1, q1 and q2 are collinear and q2 lies on segment p1q1
+    if (o2 == 0 && OnSegment(p1, q2, q1))
+        return intersectons.push_back(q2);
+
+    // p2, q2 and p1 are collinear and p1 lies on segment p2q2
+    if (o3 == 0 && OnSegment(p2, p1, q2))
+        return intersectons.push_back(p1);
+
+    // p2, q2 and q1 are collinear and q1 lies on segment p2q2
+    if (o4 == 0 && OnSegment(p2, q1, q2))
+        return intersectons.push_back(q1);
 }
 
-template <typename POINTTYPE, typename T = get_coordinate_type_t<POINTTYPE>>
-typename std::enable_if<
-    std::is_same<T, int>::value || std::is_same<T, uint64_t>::value, void>::type
-get_sum(POINTTYPE p1, POINTTYPE p2)
+// Function to check if point p is inside a given polygon
+template <typename T>
+auto IsInside(const T &p, const T &a, const T &b)
 {
-    T sum_x = p1.x + p2.x;
-    T sum_y = p1.y + p2.y;
-    std::cout << "Sum of x coordinates: " << sum_x << std::endl;
-    std::cout << "Sum of y coordinates: " << sum_y << std::endl;
+    return (get_x(b) - get_x(a)) * (get_y(p) - get_y(a)) - (get_y(b) - get_y(a)) * (get_x(p) - get_x(a)) >= 0;
+}
+
+// TODO: this part needs to be revisited
+template <typename POINTARRAY>
+auto SutherlandHodgmanClip(const POINTARRAY &polygon, const POINTARRAY &clipper)
+{
+    auto clipped_polygon = polygon;
+    for (auto i = 0; i < clipper.size(); ++i)
+    {
+        auto input = clipped_polygon;
+        clipped_polygon.clear();
+
+        auto a = clipper[i];
+        auto b = clipper[(i + 1) % clipper.size()];
+
+        for (auto j = 0; j < input.size(); ++j)
+        {
+            auto p = input[j];
+            auto q = input[(j + 1) % input.size()];
+            if (IsInside(q, a, b))
+            {
+                if (!IsInside(p, a, b))
+                {
+                    // TODO: check return value of SegmenIntersection
+                    // SegmentIntersection(a, b, p, q);
+                }
+                clipped_polygon.push_back(q);
+            }
+            else if (IsInside(p, a, b))
+            {
+                // TODO: check return value of SegmenIntersection
+                // clipped_polygon.push_back(SegmentIntersection(a, b, p, q));
+            }
+        }
+    }
+    return clipped_polygon;
 }
 
 template <typename POINTARRAY>
@@ -211,6 +242,18 @@ public:
         PrintPolygon(_pointArray);
         std::cout << " is ";
 
+        // if two adjacent segments overlap, return UNKNOWN as this is not a polygon
+        for (auto i = 0; i < n; ++i)
+        {
+            auto intersections = std::vector<POINTTYPE>();
+            SegmentIntersection(_pointArray[i], _pointArray[(i + 1) % n], _pointArray[(i + 1) % n], _pointArray[(i + 2) % n], intersections);
+            if (intersections.size() != 1)
+            {
+                std::cout << "UNKNOWN" << std::endl;
+                return _enumItemStrings[static_cast<int>(PolygonTestResult::UNKNOWN)];
+            }
+        }
+
         auto mx = get_x(point);
         for (auto i = 0; i < n; ++i)
         {
@@ -218,13 +261,13 @@ public:
         }
         POINTTYPE extreme(10 * mx, get_y(point)); // A point far away to the right
 
-        // Count intersections of the above line with polygon sides
+        // Count unique intersections of the above line with polygon edges
         auto st = std::set<POINTTYPE>{};
         for (auto i = 0; i < n; ++i)
         {
-            auto next = _pointArray[(i + 1) % n];
             auto intersections = std::vector<POINTTYPE>();
             SegmentIntersection(_pointArray[i], _pointArray[(i + 1) % n], point, extreme, intersections);
+
             if (intersections.size() == 1)
             {
                 if (point == intersections[0])
@@ -232,8 +275,8 @@ public:
                     std::cout << "OnPolygonEdge" << std::endl;
                     return _enumItemStrings[static_cast<int>(PolygonTestResult::OnPolygonEdge)];
                 }
-                std::cout << _pointArray[i] << " -> " << _pointArray[(i + 1) % n] << std::endl;
-                std::cout << "intersections: " << intersections[0] << std::endl;
+                // std::cout << _pointArray[i] << " -> " << _pointArray[(i + 1) % n] << std::endl;
+                // std::cout << "intersections: " << intersections[0] << std::endl;
                 st.insert(intersections[0]);
             }
             else if (intersections.size() == 2)
@@ -243,11 +286,11 @@ public:
                 return _enumItemStrings[static_cast<int>(PolygonTestResult::OnPolygonEdge)];
             }
         }
-        std::cout << "count: " << st.size() << std::endl;
         ret = (st.size() % 2 == 1) ? PolygonTestResult::InPolygon : PolygonTestResult::OutsidePolygon;
         std::cout << _enumItemStrings[static_cast<int>(ret)] << std::endl;
         return _enumItemStrings[static_cast<int>(ret)];
     }
+
     auto ClipSegments(const POINTARRAY &tobeclippedpath, POINTARRAY &clipped) -> void
     { // tobeclippedpath is the line segment list that adjacent points forms a line segment
         std::cout << "use ";
