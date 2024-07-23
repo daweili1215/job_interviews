@@ -10,10 +10,7 @@ public:
      Point2DT(COORDTYPE x, COORDTYPE y) : _point{x, y} {}
      Point2DT(const Point2DT &pt)
      {
-          if (this != &pt)
-          {
-               std::memcpy(_point.data(), pt._point.data(), 2 * sizeof(COORDTYPE));
-          }
+          std::memcpy(_point.data(), pt._point.data(), 2 * sizeof(COORDTYPE));
      }
      Point2DT &operator=(const Point2DT &pt)
      {
@@ -53,11 +50,8 @@ public:
      PointXYT(COORDTYPE ptx, COORDTYPE pty) : x{ptx}, y{pty} {}
      PointXYT(const PointXYT<COORDTYPE> &pt)
      {
-          if (this != &pt)
-          {
-               x = pt.x;
-               y = pt.y;
-          }
+          x = pt.x;
+          y = pt.y;
      }
      PointXYT &operator=(const PointXYT &pt)
      {
