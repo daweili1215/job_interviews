@@ -1,7 +1,9 @@
 #pragma once
 
+#include <algorithm>
 #include <iostream>
 #include <type_traits>
+#include <limits>
 #include "points.h"
 
 // Type trait to check if T is of type Point2DT
@@ -129,3 +131,42 @@ typename std::enable_if_t<std::is_integral<T>::value, int64_t> fix_y(const Point
 {
   return static_cast<int64_t>(get_y(p));
 };
+
+// type trait to check if a type is an unsigned integer
+template<typename T>
+struct is_unsigned_integer
+    : std::integral_constant<bool, std::is_integral<T>::value && std::is_unsigned<T>::value> {};
+
+template<typename T>
+constexpr bool is_unsigned_integer_v = is_unsigned_integer<T>::value;
+
+// type traits to create a positve or negative extreme value
+template <typename T>
+typename std::enable_if_t<!is_unsigned_integer_v<T>, T> create_max(const T &p)
+{
+  return std::min(p < 0 ? -p : p, std::numeric_limits<T>::max());
+}
+
+template <typename T>
+typename std::enable_if_t<is_unsigned_integer_v<T>, T> create_max(const T &p)
+{
+  return std::min(p, std::numeric_limits<T>::max());
+}
+
+template <typename T>
+typename std::enable_if_t<is_unsigned_integer_v<T>, T> create_min(const T &p)
+{
+  return 0;
+}
+
+template <typename T>
+typename std::enable_if_t<std::is_same<T, double>::value, T> create_min(const T &p)
+{
+  return std::max(p < 0 ? p : -p, -std::numeric_limits<T>::max());
+}
+
+template <typename T>
+typename std::enable_if_t<std::is_same<T, int>::value, T> create_min(const T &p)
+{
+  return std::max(p < 0 ? p : -p, std::numeric_limits<T>::min());
+}

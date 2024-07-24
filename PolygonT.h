@@ -79,7 +79,21 @@ OnSegment(const std::vector<double> &p, const POINTTYPE &start, const POINTTYPE 
     return false;
 }
 
-// handle general case with integral coordinates
+/**
+ * @brief Calculates the intersection of two parallel line segments.
+ *
+ * This function computes the intersection of two parallel line segments defined by
+ * their endpoints and stores the intersection points in the given vector. If the segments
+ * overlap, it returns the overlapping segment as a vector of points.
+ *
+ * @tparam POINTTYPE The type of the point
+ * @param p1 The first endpoint of the first line segment.
+ * @param q1 The second endpoint of the first line segment.
+ * @param p2 The first endpoint of the second line segment.
+ * @param q2 The second endpoint of the second line segment.
+ * @param intersections A vector to store the intersection points if any.
+ * @return A vector of vectors of doubles representing the intersection points. 
+ */
 template <typename POINTTYPE>
 std::vector<std::vector<double>>
 ParallelSegmentIntersection(const POINTTYPE &p1, const POINTTYPE &q1, const POINTTYPE &p2, const POINTTYPE &q2, std::vector<POINTTYPE> &intersectons)
@@ -120,6 +134,20 @@ std::vector<double> GetLineParameter(const POINTTYPE &point1, const POINTTYPE &p
     return std::vector<double>{a, b, c};
 }
 
+/**
+ * @brief Calculates the intersection of two line segments.
+ *
+ * This function computes the intersection of two line segments defined by
+ * their endpoints and stores the intersection points in the given vector.
+ *
+ * @tparam POINTTYPE The type of the point
+ * @param p1 The first endpoint of the first line segment.
+ * @param q1 The second endpoint of the first line segment.
+ * @param p2 The first endpoint of the second line segment.
+ * @param q2 The second endpoint of the second line segment.
+ * @param intersections A vector to store the intersection points if any.
+ * @return A vector of vectors of doubles representing the intersection points. 
+ */
 template <typename POINTTYPE, typename T = get_coordinate_type_t<POINTTYPE>>
 std::vector<std::vector<double>>
 SegmentIntersection(const POINTTYPE &p1, const POINTTYPE &q1, const POINTTYPE &p2, const POINTTYPE &q2, std::vector<POINTTYPE> &intersectons)
@@ -209,14 +237,15 @@ public:
             }
         }
 
-        POINTTYPE positive_x_extreme(std::min(std::max(static_cast<get_coordinate_type_t<POINTTYPE>>(0), 2 * max_x), std::numeric_limits<get_coordinate_type_t<POINTTYPE>>::max()), get_y(point)); // positive x direction ray
-        POINTTYPE positive_y_extreme(get_x(point), std::min(std::max(static_cast<get_coordinate_type_t<POINTTYPE>>(0), 2 * max_y), std::numeric_limits<get_coordinate_type_t<POINTTYPE>>::max())); // positive y direction ray
-        POINTTYPE negative_x_extreme(std::max(std::min(static_cast<get_coordinate_type_t<POINTTYPE>>(0), 2 * min_x), -std::numeric_limits<get_coordinate_type_t<POINTTYPE>>::max()), get_y(point)); // negative x direction ray
-        POINTTYPE negative_y_extreme(get_x(point), std::max(std::min(static_cast<get_coordinate_type_t<POINTTYPE>>(0), 2 * min_y), -std::numeric_limits<get_coordinate_type_t<POINTTYPE>>::max())); // negative y direction ray
+        POINTTYPE positive_x_extreme(create_max(max_x), get_y(point)); // positive x direction ray
+        POINTTYPE positive_y_extreme(get_x(point), create_max(max_y)); // positive y direction ray
+        POINTTYPE negative_x_extreme(create_min(min_x), get_y(point)); // negative x direction ray
+        POINTTYPE negative_y_extreme(get_x(point), create_min(min_y)); // negative y direction ray
+        
         std::vector<POINTTYPE> extreme_points{positive_x_extreme, positive_y_extreme, negative_x_extreme, negative_y_extreme};
 
-        // max_instersections keep track of the maximum number of intersections for each ray
-        int max_intersections = 0;
+        // a flag to keep track if there is no intersection for a raoy
+        bool no_intersections = false;
         // loop through 4 rays
         for (auto i = 0; i < extreme_points.size(); ++i)
         {
@@ -230,15 +259,13 @@ public:
                     intersections_with_a_ray.insert(intersection);
                 }
             }
-            // if there are 2 unique intersections for any given ray, then it must be outside
-            if (intersections_with_a_ray.size() == 2)
+            if (intersections_with_a_ray.empty())
             {
-                std::cout << "OutsidePolygon" << std::endl; 
-                return _enumItemStrings[static_cast<int>(PolygonTestResult::OutsidePolygon)];
+                no_intersections = true;
             }
-            max_intersections = std::max(max_intersections, (int)intersections_with_a_ray.size());
         }
-        if (max_intersections >= 2) {
+        
+        if (no_intersections) {
             ret = PolygonTestResult::OutsidePolygon;
         } else {
             ret = PolygonTestResult::InPolygon;
@@ -246,6 +273,7 @@ public:
         std::cout << _enumItemStrings[static_cast<int>(ret)] << std::endl;
         return _enumItemStrings[static_cast<int>(ret)];
     }
+
 
     auto ClipSegments(const POINTARRAY &tobeclippedpath, POINTARRAY &clipped)
         -> void
