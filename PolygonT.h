@@ -10,6 +10,8 @@
 #include <set>
 #include "traits.h"
 
+#include "traits.h"
+
 #define POLYGONINOUTSTATUS(code) \
     code(UNKNOWN) code(InPolygon) code(OnPolygonEdge) code(OutsidePolygon)
 
@@ -35,164 +37,122 @@ auto PrintPolygon(const POINTARRAY &polygon) -> void
 }
 
 const double EPSILON = 1e-6;
-// check if a given point p is on line segment that is from start to end
+/**
+ * @brief Checks if a given point lies on a line segment.
+ *
+ * This function determines if the point `p` lies on the line segment
+ * defined by the points `start` and `end`.
+ *
+ * @tparam POINTTYPE The type representing a point.
+ * @param p The point to check.
+ * @param start The start point of the line segment.
+ * @param end The end point of the line segment.
+ * @return True if `p` lies on the segment, false otherwise.
+ */
 template <typename POINTTYPE>
 auto OnSegment(const POINTTYPE &p, const POINTTYPE &start, const POINTTYPE &end)
 {
     // distance of two points(x1, y1) and (x2, y2) is sqrt((x1-x2)^2 + (y1-y2)^2)
-    auto d1 = sqrt((get_x(p) - get_x(start)) * (get_x(p) - get_x(start)) + (get_y(p) - get_y(start)) * (get_y(p) - get_y(start)));
-    auto d2 = sqrt((get_x(p) - get_x(end)) * (get_x(p) - get_x(end)) + (get_y(p) - get_y(end)) * (get_y(p) - get_y(end)));
-    auto d3 = sqrt((get_x(start) - get_x(end)) * (get_x(start) - get_x(end)) + (get_y(start) - get_y(end)) * (get_y(start) - get_y(end)));
+    auto d1 = sqrt((fix_x(p) - fix_x(start)) * (fix_x(p) - fix_x(start)) + (fix_y(p) - fix_y(start)) * (fix_y(p) -fix_y(start)));
+    auto d2 = sqrt((fix_x(p) - fix_x(end)) * (fix_x(p) - fix_x(end)) + (fix_y(p) - fix_y(end)) * (fix_y(p) - fix_y(end)));
+    auto d3 = sqrt((fix_x(start) - fix_x(end)) * (fix_x(start) - fix_x(end)) + (fix_y(start) - fix_y(end)) * (fix_y(start) - fix_y(end)));
+    
     if (fabs(d1 + d2 - d3) <= EPSILON)
     {
         return true;
     }
     return false;
 }
+
 // Specialized function for when the first parameter is a std::vector<double>
 template <typename POINTTYPE>
 typename std::enable_if<!std::is_same<POINTTYPE, std::vector<double>>::value, bool>::type
 OnSegment(const std::vector<double> &p, const POINTTYPE &start, const POINTTYPE &end)
 {
-    // distance of two points(x1, y1) and (x2, y2) is sqrt((x1-x2)^2 + (y1-y2)^2)
-    auto d1 = sqrt((p[0] - get_x(start)) * (p[0] - get_x(start)) + (p[1] - get_y(start)) * (p[1] - get_y(start)));
-    auto d2 = sqrt((p[0] - get_x(end)) * (p[0] - get_x(end)) + (p[1] - get_y(end)) * (p[1] - get_y(end)));
-    auto d3 = sqrt((get_x(start) - get_x(end)) * (get_x(start) - get_x(end)) + (get_y(start) - get_y(end)) * (get_y(start) - get_y(end)));
-    if (fabs(d1 + d2 - d3) <= EPSILON)
-    {
+    auto d1 = sqrt((p[0] - fix_x(start))*(p[0] - fix_x(start)) + (p[1] - fix_y(start))*(p[1] - fix_y(start))); 
+    auto d2 = sqrt((p[0] - fix_x(end))*(p[0] - fix_x(end)) + (p[1] - fix_y(end))*(p[1] - fix_y(end))); 
+    auto d3 = sqrt((fix_x(start) - fix_x(end))*(fix_x(start) - fix_x(end)) + (fix_y(start) - fix_y(end))*(fix_y(start) - fix_y(end)));
+    
+    if(fabs(d1 + d2 - d3) <= EPSILON) { 
         return true;
     }
     return false;
 }
-// get orientation of ordered triplet (p, q, r)
-template <typename T>
-auto orientation(const T &p, const T &q, const T &r)
-{
-    auto val = (get_y(q) - get_y(p)) * (get_x(r) - get_x(q)) - (get_x(q) - get_x(p)) * (get_y(r) - get_y(q));
-    if (val == 0)
-        return 0;             // collinear
-    return (val > 0) ? 1 : 2; // clock or counterclock wise
-}
+
 // handle general case with integral coordinates
-template <typename POINTTYPE, typename T = get_coordinate_type_t<POINTTYPE>>
-std::enable_if_t<std::is_integral<T>::value, void> GeneralCaseSegmentIntersection(const POINTTYPE &p1, const POINTTYPE &q1, const POINTTYPE &p2, const POINTTYPE &q2, std::vector<POINTTYPE> &intersectons)
+template <typename POINTTYPE>
+std::vector<std::vector<double>>
+ParallelSegmentIntersection(const POINTTYPE &p1, const POINTTYPE &q1, const POINTTYPE &p2, const POINTTYPE &q2, std::vector<POINTTYPE> &intersectons)
 {
-    // Compute the intersection point
-    auto a1 = static_cast<int64_t>(get_y(q1)) - static_cast<int64_t>(get_y(p1));
-    auto b1 = static_cast<int64_t>(get_x(p1)) - static_cast<int64_t>(get_x(q1));
-    auto c1 = a1 * static_cast<int64_t>(get_x(p1)) + b1 * static_cast<int64_t>(get_y(p1));
-
-    auto a2 = static_cast<int64_t>(get_y(q2)) - static_cast<int64_t>(get_y(p2));
-    auto b2 = static_cast<int64_t>(get_x(p2)) - static_cast<int64_t>(get_x(q2));
-    auto c2 = a2 * static_cast<int64_t>(get_x(p2)) + b2 * static_cast<int64_t>(get_y(p2));
-
-    auto determinant = a1 * b2 - a2 * b1;
-    if (determinant == 0)
-    {
-        // The lines are parallel. This case is handled by the collinear case later.
-        return;
+    auto unique_points = std::set<std::vector<double>>{};
+    auto unique_intersectons = std::set<POINTTYPE>{};
+    if (OnSegment(p1, p2, q2)) {
+        unique_intersectons.insert(p1);
+        unique_points.insert({double(fix_x(p1)), double(fix_y(p1))});
     }
-    else
-    {
-        auto x = double(b2 * c1 - b1 * c2) / double(determinant);
-        auto y = double(a1 * c2 - a2 * c1) / double(determinant);
-        POINTTYPE intersection = {static_cast<T>(x), static_cast<T>(y)};
-        std::vector<double> point{x, y};
-        if (OnSegment(point, p1, q1) && OnSegment(point, p2, q2))
-        {
-            intersectons.push_back({static_cast<T>(x), static_cast<T>(y)});
-        }
-        return;
+    if (OnSegment(q1, p2, q2)) {
+        unique_intersectons.insert(q1);
+        unique_points.insert({double(fix_x(q1)), double(fix_y(q1))});
     }
+    if (OnSegment(p2, p1, q1)) {
+        unique_intersectons.insert(p2);
+        unique_points.insert({double(fix_x(p2)), double(fix_y(p2))});
+    }
+    if (OnSegment(q2, p1, q1)) {
+        unique_intersectons.insert(q2);
+        unique_points.insert({double(fix_x(q2)), double(fix_y(q2))});
+    }
+    for (auto interaction : unique_intersectons) {
+        intersectons.push_back(interaction);
+    }
+    return std::vector<std::vector<double>>(unique_points.begin(), unique_points.end());
+}
+
+// given two points, get the A, B, C of the linear equation Ax + By + C = 0
+// formed by the two points
+template <typename POINTTYPE>
+std::vector<double> GetLineParameter(const POINTTYPE &point1, const POINTTYPE &point2)
+{
+    // A = y2-y1, B = x1-x2, C = x2y1-x1y2
+    double a = fix_y(point2) - fix_y(point1);
+    double b = fix_x(point1) - fix_x(point2);
+    double c = fix_x(point2) * fix_y(point1) - fix_x(point1) * fix_y(point2);
+    return std::vector<double>{a, b, c};
 }
 
 template <typename POINTTYPE, typename T = get_coordinate_type_t<POINTTYPE>>
-std::enable_if_t<!std::is_integral<T>::value, void> GeneralCaseSegmentIntersection(const POINTTYPE &p1, const POINTTYPE &q1, const POINTTYPE &p2, const POINTTYPE &q2, std::vector<POINTTYPE> &intersectons)
-{
-    // Compute the intersection point
-    auto a1 = get_y(q1) - get_y(p1);
-    auto b1 = get_x(p1) - get_x(q1);
-    auto c1 = a1 * get_x(p1) + b1 * get_y(p1);
-
-    auto a2 = get_y(q2) - get_y(p2);
-    auto b2 = get_x(p2) - get_x(q2);
-    auto c2 = a2 * get_x(p2) + b2 * get_y(p2);
-
-    auto determinant = a1 * b2 - a2 * b1;
-    if (std::fabs(determinant) < 1e-5)
-    {
-        // The lines are parallel. This case is handled by the collinear case later.
-        return;
-    }
-    else
-    {
-        auto x = (b2 * c1 - b1 * c2) / determinant;
-        auto y = (a1 * c2 - a2 * c1) / determinant;
-        POINTTYPE intersection = {x, y};
-        if (OnSegment(intersection, p1, q1) && OnSegment(intersection, p2, q2))
-        {
-            intersectons.push_back(intersection);
-        }
-        return;
-    }
-}
-
-template <typename POINTTYPE, typename T = get_coordinate_type_t<POINTTYPE>>
-auto SegmentIntersection(const POINTTYPE &p1, const POINTTYPE &q1, const POINTTYPE &p2, const POINTTYPE &q2, std::vector<POINTTYPE> &intersectons)
+std::vector<std::vector<double>>
+SegmentIntersection(const POINTTYPE &p1, const POINTTYPE &q1, const POINTTYPE &p2, const POINTTYPE &q2, std::vector<POINTTYPE> &intersectons)
 {
     // Find the four orientations needed for general and special cases
-    int o1 = orientation(p1, q1, p2);
-    int o2 = orientation(p1, q1, q2);
-    int o3 = orientation(p2, q2, p1);
-    int o4 = orientation(p2, q2, q1);
+    auto dx1 = fix_x(q1) - fix_x(p1);
+    auto dy1 = fix_y(q1) - fix_y(p1);
+    auto dx2 = fix_x(q2) - fix_x(p2);
+    auto dy2 = fix_y(q2) - fix_y(p2);
 
-    // General case
-    if (o1 != o2 && o3 != o4)
+    // two lines are parallel
+    if (dx1 * dy2 == dx2 * dy1)
     {
-        GeneralCaseSegmentIntersection(p1, q1, p2, q2, intersectons);
-        return;
+        return ParallelSegmentIntersection(p1, q1, p2, q2, intersectons);
     }
 
-    // Check for overlapping segments
-    if (o1 == 0 && o2 == 0 && o3 == 0 && o4 == 0)
+    auto v1 = GetLineParameter(p1, q1);
+    auto v2 = GetLineParameter(p2, q2);
+
+    auto x = (v2[2] * v1[1] - v1[2] * v2[1]) / (v1[0] * v2[1] - v2[0] * v1[1]);
+    auto y = (v1[2] * v2[0] - v2[2] * v1[0]) / (v1[0] * v2[1] - v2[0] * v1[1]);
+
+    auto result = std::vector<std::vector<double>>{};
+    auto point = std::vector<double>{x, y};
+    POINTTYPE intersection = {static_cast<T>(x), static_cast<T>(y)};
+
+    if (OnSegment(point, p1, q1) && OnSegment(point, p2, q2))
     {
-        std::vector<POINTTYPE> overlap_points;
-
-        if (OnSegment(p2, p1, q1))
-            overlap_points.push_back(p2);
-        if (OnSegment(q2, p1, q1))
-            overlap_points.push_back(q2);
-        if (OnSegment(p1, p2, q2))
-            overlap_points.push_back(p1);
-        if (OnSegment(q1, p2, q2))
-            overlap_points.push_back(q1);
-
-        std::sort(overlap_points.begin(), overlap_points.end(), [](const POINTTYPE &a, const POINTTYPE &b)
-                  { return (get_x(a) < get_x(b)) || (get_x(a) == get_x(b) && get_y(a) < get_y(b)); });
-
-        auto it = std::unique(overlap_points.begin(), overlap_points.end());
-        overlap_points.resize(std::distance(overlap_points.begin(), it));
-
-        for (auto point : overlap_points)
-            intersectons.push_back(point);
-        return;
+        intersectons.push_back(intersection);
+        result.push_back({x, y});
+        return result;
     }
-    // Special cases
-    // p1, q1 and p2 are collinear and p2 lies on segment p1q1
-    if (o1 == 0 && OnSegment(p2, p1, q1))
-        return intersectons.push_back(p2);
-
-    // p1, q1 and q2 are collinear and q2 lies on segment p1q1
-    if (o2 == 0 && OnSegment(q2, p1, q1))
-        return intersectons.push_back(q2);
-
-    // p2, q2 and p1 are collinear and p1 lies on segment p2q2
-    if (o3 == 0 && OnSegment(p1, p2, q2))
-        return intersectons.push_back(p1);
-
-    // p2, q2 and q1 are collinear and q1 lies on segment p2q2
-    if (o4 == 0 && OnSegment(q1, p2, q2))
-        return intersectons.push_back(q1);
+    return {};
 }
 
 template <typename POINTARRAY>
@@ -202,16 +162,19 @@ public:
     using POINTTYPE = typename POINTARRAY::value_type;
     PolygonT(POINTARRAY &points) : _pointArray(points)
     {
-        static_assert(has_indexer_v<POINTARRAY>, "Template argument must have an indexer");
+        static_assert(has_indexer_v<POINTARRAY>,
+                      "Template argument must have an indexer");
     }
     virtual ~PolygonT() = default;
     auto InPolygonTest(const POINTTYPE &point) const -> std::string
     {
         PolygonTestResult ret = PolygonTestResult::UNKNOWN;
-        // TODO: implement this function from here and changed the ret to the correct status
+        // TODO: implement this function from here and changed the ret to the
+        // correct status
 
         //////////////////////////////////////////
-        // If there are less than 3 points, it is not a polygon, return UNKNOWN for simplicity
+        // If there are less than 3 points, it is not a polygon, return UNKNOWN for
+        // simplicity
         if (_pointArray.size() < 3)
             return _enumItemStrings[static_cast<int>(PolygonTestResult::UNKNOWN)];
 
@@ -219,8 +182,10 @@ public:
         PrintPolygon(_pointArray);
         std::cout << " is ";
 
-        // record rightmost, leftmost, topmost, bottommost points, these will be used to create extreme horizontal and vertical rays
+        // record rightmost, leftmost, topmost, bottommost points, these will be
+        // used to create extreme horizontal and vertical rays
         auto max_x = get_x(point), min_x = get_x(point), max_y = get_y(point), min_y = get_y(point);
+        // loop through all adjacent segments
         for (auto i = 0; i < _pointArray.size(); ++i)
         {
             max_x = std::max(max_x, get_x(_pointArray[i]));
@@ -233,10 +198,10 @@ public:
             // if two adjacent segments overlap, return UNKNOWN as this is not a standard polygon
             if (intersections.size() != 1)
             {
-                std::cout << "UNKNOWN" << std::endl;
+                std::cout << "UNKNOWN" << " size: " << intersections.size() << std::endl;
                 return _enumItemStrings[static_cast<int>(PolygonTestResult::UNKNOWN)];
             }
-
+            // if the point is on the segment, return OnPolygonEdge
             if (OnSegment(point, _pointArray[i], _pointArray[(i + 1) % _pointArray.size()]))
             {
                 std::cout << "OnPolygonEdge" << std::endl;
@@ -246,46 +211,55 @@ public:
 
         POINTTYPE positive_x_extreme(std::min(std::max(static_cast<get_coordinate_type_t<POINTTYPE>>(0), 2 * max_x), std::numeric_limits<get_coordinate_type_t<POINTTYPE>>::max()), get_y(point)); // positive x direction ray
         POINTTYPE positive_y_extreme(get_x(point), std::min(std::max(static_cast<get_coordinate_type_t<POINTTYPE>>(0), 2 * max_y), std::numeric_limits<get_coordinate_type_t<POINTTYPE>>::max())); // positive y direction ray
-        POINTTYPE negative_x_extreme(std::max(std::min(static_cast<get_coordinate_type_t<POINTTYPE>>(0), 2 * min_x), std::numeric_limits<get_coordinate_type_t<POINTTYPE>>::min()), get_y(point)); // negative x direction ray
-        POINTTYPE negative_y_extreme(get_x(point), std::max(std::min(static_cast<get_coordinate_type_t<POINTTYPE>>(0), 2 * min_y), std::numeric_limits<get_coordinate_type_t<POINTTYPE>>::min())); // negative y direction ray
+        POINTTYPE negative_x_extreme(std::max(std::min(static_cast<get_coordinate_type_t<POINTTYPE>>(0), 2 * min_x), -std::numeric_limits<get_coordinate_type_t<POINTTYPE>>::max()), get_y(point)); // negative x direction ray
+        POINTTYPE negative_y_extreme(get_x(point), std::max(std::min(static_cast<get_coordinate_type_t<POINTTYPE>>(0), 2 * min_y), -std::numeric_limits<get_coordinate_type_t<POINTTYPE>>::max())); // negative y direction ray
         std::vector<POINTTYPE> extreme_points{positive_x_extreme, positive_y_extreme, negative_x_extreme, negative_y_extreme};
 
+        // max_instersections keep track of the maximum number of intersections for each ray
+        int max_intersections = 0;
+        // loop through 4 rays
         for (auto i = 0; i < extreme_points.size(); ++i)
         {
-            auto all_intersections = std::set<POINTTYPE>();
+            auto intersections_with_a_ray = std::set<POINTTYPE>();
             for (auto j = 0; j < _pointArray.size(); ++j)
             {
                 auto intersections = std::vector<POINTTYPE>();
                 SegmentIntersection(_pointArray[j], _pointArray[(j + 1) % _pointArray.size()], point, extreme_points[i], intersections);
-                if (!intersections.empty())
+                for (auto intersection : intersections)
                 {
-                    for (auto intersection : intersections)
-                    {
-                        all_intersections.insert(intersection);
-                    }
+                    intersections_with_a_ray.insert(intersection);
                 }
             }
-            // if there is no intersection with one of the 4 rays, or there are 2 unique ones, then it must be outside
-            if (all_intersections.empty() || all_intersections.size() == 2)
+            // if there are 2 unique intersections for any given ray, then it must be outside
+            if (intersections_with_a_ray.size() == 2)
             {
-                std::cout << "OutsidePolygon" << std::endl;
+                std::cout << "OutsidePolygon" << std::endl; 
                 return _enumItemStrings[static_cast<int>(PolygonTestResult::OutsidePolygon)];
             }
+            max_intersections = std::max(max_intersections, (int)intersections_with_a_ray.size());
         }
-        ret = PolygonTestResult::InPolygon;
+        if (max_intersections >= 2) {
+            ret = PolygonTestResult::OutsidePolygon;
+        } else {
+            ret = PolygonTestResult::InPolygon;
+        }
         std::cout << _enumItemStrings[static_cast<int>(ret)] << std::endl;
         return _enumItemStrings[static_cast<int>(ret)];
     }
 
-    auto ClipSegments(const POINTARRAY &tobeclippedpath, POINTARRAY &clipped) -> void
-    { // tobeclippedpath is the line segment list that adjacent points forms a line segment
+    auto ClipSegments(const POINTARRAY &tobeclippedpath, POINTARRAY &clipped)
+        -> void
+    { // tobeclippedpath is the line segment list that adjacent points
+      // forms a line segment
         std::cout << "use ";
         PrintPolygon(_pointArray);
         std::cout << " to clip ";
         PrintPolygon(tobeclippedpath);
-        // TODO: implement a function to clip segments and return the clipped segments with 'clipped'
+        // TODO: implement a function to clip segments and return the clipped
+        // segments with 'clipped'
 
-        // note that the returned size of clipped should be a multiple of 2. clipped[i] and clipped[i + 1] determines a line segment, where i = 0, 2, 4, ...
+        // note that the returned size of clipped should be a multiple of 2.
+        // clipped[i] and clipped[i + 1] determines a line segment, where i = 0, 2, 4, ...
         if (_pointArray.size() < 3)
         {
             std::cout << "invalid polygon, return now" << std::endl;
@@ -301,7 +275,8 @@ public:
         for (auto i = 0; i < tobeclippedpath.size() - 1; ++i)
         {
             auto start_point = tobeclippedpath[i], end_point = tobeclippedpath[i + 1];
-            auto start_status = InPolygonTest(start_point), end_status = InPolygonTest(end_point);
+            auto start_status = InPolygonTest(start_point),
+                 end_status = InPolygonTest(end_point);
 
             if (start_status == "UNKNOWN" || end_status == "UNKNOWN")
             {
@@ -309,7 +284,8 @@ public:
                 continue;
             }
 
-            if (start_status == "InPolygon" && end_status == "InPolygon" || start_status == "OnPolygonEdge" && end_status == "OnPolygonEdge")
+            if (start_status == "InPolygon" && end_status == "InPolygon" ||
+                start_status == "OnPolygonEdge" && end_status == "OnPolygonEdge")
             {
                 clipped.push_back(start_point);
                 clipped.push_back(end_point);
@@ -328,7 +304,8 @@ public:
                 }
             }
 
-            // if one point is inside the polygon and another is outside, we need to add in the inside point
+            // if one point is inside the polygon and another is outside, we need to
+            // add in the inside point
             if (start_status == "InPolygon")
                 clipped.push_back(start_point);
             if (end_status == "InPolygon")
@@ -338,8 +315,7 @@ public:
                 clipped.push_back(point);
             }
         }
-        std::cout << std::endl
-                  << " clipped is ";
+        std::cout << std::endl << " clipped is ";
         PrintPolygon(clipped);
         std::cout << std::endl;
     }

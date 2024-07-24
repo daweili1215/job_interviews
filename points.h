@@ -52,6 +52,7 @@ public:
      {
           x = pt.x;
           y = pt.y;
+
      }
      PointXYT &operator=(const PointXYT &pt)
      {

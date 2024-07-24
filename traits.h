@@ -104,3 +104,28 @@ std::enable_if_t<is_PointXYT_v<Point>, get_coordinate_type_t<Point>> get_y(const
 {
   return p.y;
 };
+
+// type traits to fix the type of the coordinates to either double or int64_t
+template <typename Point, typename T = get_coordinate_type_t<Point>>
+typename std::enable_if_t<!std::is_integral<T>::value, double> fix_x(const Point &p)
+{
+  return get_x(p);
+};
+
+template <typename Point, typename T = get_coordinate_type_t<Point>>
+typename std::enable_if_t<!std::is_integral<T>::value, double> fix_y(const Point &p)
+{
+  return get_y(p);
+};
+
+template <typename Point, typename T = get_coordinate_type_t<Point>>
+typename std::enable_if_t<std::is_integral<T>::value, int64_t> fix_x(const Point &p)
+{
+  return static_cast<int64_t>(get_x(p));
+};
+
+template <typename Point, typename T = get_coordinate_type_t<Point>>
+typename std::enable_if_t<std::is_integral<T>::value, int64_t> fix_y(const Point &p)
+{
+  return static_cast<int64_t>(get_y(p));
+};
