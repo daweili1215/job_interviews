@@ -5,48 +5,37 @@
 
 using namespace std;
 using uchar = unsigned char;
-std::mutex mtx;
 
-/*
-Parallel  Programming Exercise
-Given an array of uchars, implement the multithreading application to determine the frequency of distinct
-values in the array. From the function prototype below, accessing result[0] would give the frequency of the
-value 0, result[1] would give the frequency of value 1, etc.  
-dataCount: Length of inputData
-result: Output result
-CreateHistogram (uchar* inputData, int dataCount, uint* result){}
-*/
-
-
-const int RANGE = 256;
-const int THREAD_LIMIT = 4;
+constexpr int RANGE = 256;
+constexpr int THREAD_LIMIT = 4;
 void CreateHistogram(uchar* inputData, int dataCount /* Length of inputData */, uint* result /*Output result*/){
   // initialize result array
   for (int i = 0; i < RANGE; ++i)
     result[i] = 0;
   
-  std::vector<std::thread> threads;
   auto chunk_length = dataCount / THREAD_LIMIT;
+
+  uint32_t counts[THREAD_LIMIT][RANGE] = {0};
   
-  auto thread_worker = [&](auto start, auto end) {
-    uint32_t counts[RANGE] = {0};
+  auto thread_worker = [&](auto thread_id) {
+    auto start = thread_id * chunk_length;
+    auto end = (thread_id == THREAD_LIMIT - 1) ? dataCount : start + chunk_length;
     
     for (auto i = start; i < end; ++i)
-      ++counts[inputData[i]];
-    
-    std::lock_guard<std::mutex> lock(mtx);
-    for (auto i = 0; i < RANGE; ++i)
-      result[i] += counts[i];
+      ++counts[thread_id][inputData[i]];
   };
-  
+
+  std::vector<std::thread> threads;
   for (int i = 0; i < THREAD_LIMIT; ++i) {
-    auto start = i * chunk_length;
-    auto end = (i == THREAD_LIMIT - 1) ? dataCount : (i + 1) * chunk_length;
-    threads.emplace_back(thread_worker, start, end);
+    threads.emplace_back(thread_worker, i);
   }
-  
   for (auto& t : threads)
     t.join();
+  // sum over sub counts
+  for (auto i = 0; i < RANGE; ++i) {
+    for (auto j = 0; j < THREAD_LIMIT; ++j)
+      result[i] += counts[j][i];
+  }
 }
 
 void print_content(uint32_t* counts) {
