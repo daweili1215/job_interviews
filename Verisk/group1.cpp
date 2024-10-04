@@ -7,6 +7,17 @@
 #include "linked_list.hpp"
 
 using namespace std;
+// panel round, based on feedback, function func will be invoked 1B times, but only need to store the last 10 records, so use the circular array approach, less memory, 
+// don't use % as it would over flow and expensive
+// shared_ptr, unique_ptr related questions
+constexpr int LIMIT = 10;
+int records[LIMIT] = {0};
+int counter = 0;
+void func(int user_id) {
+  if (counter >= LIMIT)
+    counter = 0;
+  records[counter++] = user_id;
+}
 
 void run_singly_linked_list_tests() {
   singly_linked_list<int> sll;
